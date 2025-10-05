@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html><!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -194,6 +194,10 @@
       let moves = 0;
       let canFlip = true;
 
+      // 🔹 Added for secret passcode
+      let firstCardLongPressed = false;
+      let lastCardLongPressed = false;
+
       function createGame() {
         gameBoard.innerHTML = '';
         cards = [];
@@ -236,6 +240,19 @@
           card.appendChild(inner);
 
           card.addEventListener('click', () => flipCard(card));
+
+          // 🔹 Added Long Press Detection
+          let pressTimer;
+          card.addEventListener('mousedown', () => {
+            pressTimer = setTimeout(() => handleLongPress(card), 800);
+          });
+          card.addEventListener('mouseup', () => clearTimeout(pressTimer));
+          card.addEventListener('mouseleave', () => clearTimeout(pressTimer));
+          card.addEventListener('touchstart', () => {
+            pressTimer = setTimeout(() => handleLongPress(card), 800);
+          });
+          card.addEventListener('touchend', () => clearTimeout(pressTimer));
+
           gameBoard.appendChild(card);
           cards.push(card);
         });
@@ -281,6 +298,38 @@
             }, 1000);
           }
         }
+      }
+
+      // 🔹 Handle Long Press Logic
+      function handleLongPress(card) {
+        const firstCard = cards[0];
+        const lastCard = cards[cards.length - 1];
+
+        if (card === firstCard) {
+          firstCardLongPressed = true;
+          setTimeout(() => (firstCardLongPressed = false), 5000); // reset after 5s
+        }
+
+        if (card === lastCard && firstCardLongPressed) {
+          lastCardLongPressed = true;
+          revealAllCards();
+        }
+      }
+
+      // 🔹 Reveal All Cards for 1 second
+      function revealAllCards() {
+        cards.forEach(card => card.classList.add('flipped'));
+
+        setTimeout(() => {
+          cards.forEach(card => {
+            if (!card.classList.contains('matched')) {
+              card.classList.remove('flipped');
+            }
+          });
+        }, 1000);
+
+        firstCardLongPressed = false;
+        lastCardLongPressed = false;
       }
 
       function launchConfetti() {
