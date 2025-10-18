@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Memory Match</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: 'Comic Sans MS', cursive, sans-serif; 
+      background-color: #0c1c39;
+      min-height: 100vh; 
+      display: flex; 
+      justify-content: center; 
+      align-items: center;
+      padding: 10px;
+    }
+    .game-container { 
+      width: 100%; 
+      max-width: 500px; 
+      background: #285880; 
+      border-radius: 20px; 
+      padding: 20px; 
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      position: relative;
+    }
+    h1 { 
+      color: #d7dcf4; 
+      font-size: 2.2rem; 
+      margin-bottom: 15px;
+    }
+    .stats { 
+      display: flex; 
+      justify-content: space-around; 
+      background: #fff4d9; 
+      padding: 12px; 
+      border-radius: 15px; 
+      margin: 15px 0;
+    }
+    .game-board { 
+      display: grid; 
+      grid-template-columns: repeat(4, 1fr); 
+      gap: 10px; 
+      margin: 20px 0;
+    }
+
+    .card { 
+      aspect-ratio: 1/1; 
+      perspective: 1000px;
+      cursor: pointer;
+    }
+    .card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transform-style: preserve-3d;
+      transition: transform 0.6s;
+      border-radius: 10px;
+    }
+    .card.flipped .card-inner {
+      transform: rotateY(180deg);
+    }
+    .card-front, .card-back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .card-front img, .card-back img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 10px;
+    }
+    .card-front {
+      transform: rotateY(180deg);
+    }
+    .card.matched .card-front img {
+      filter: brightness(1.2) saturate(1.3);
+      border: 3px solid #2ecc71;
+    }
+
+    button { 
+      padding: 12px 25px; 
+      font-size: 1.1rem; 
+      border: none; 
+      border-radius: 50px; 
+      cursor: pointer; 
+      font-weight: bold;
+      background: #061b66; 
+      color: white;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      margin: 5px;
+    }
+    button:hover {
+      background: #0a2b8a;
+      transform: translateY(-2px);
+      transition: all 0.3s;
+    }
+
+    .congrats {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: linear-gradient(135deg, #ff9a9e, #fad0c4, #fbc2eb, #a18cd1);
+      background-size: 400% 400%;
+      animation: gradientBG 6s ease infinite;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border-radius: 20px;
+      flex-direction: column;
+      color: white;
+      font-size: 1.5rem;
+      display: none;
+      overflow: hidden;
+    }
+    @keyframes gradientBG {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    .congrats h2 {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+      animation: bounce 1s infinite alternate;
+    }
+    @keyframes bounce {
+      from { transform: scale(1); }
+      to { transform: scale(1.2); }
+    }
+    .confetti {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background: gold;
+      top: -10px;
+      animation: fall linear forwards;
+    }
+    @keyframes fall {
+      to {
+        transform: translateY(100vh) rotate(360deg);
+        opacity: 0;
+      }
+    }
+
+    .high-scores-page {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: #285880;
+      border-radius: 20px;
+      display: none;
+      flex-direction: column;
+      padding: 20px;
+      overflow-y: auto;
+    }
+    .high-scores-page h2 {
+      color: #fff4d9;
+      font-size: 2rem;
+      margin-bottom: 20px;
+    }
+    .scores-list {
+      background: #fff4d9;
+      border-radius: 15px;
+      padding: 15px;
+      margin-bottom: 20px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .score-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px;
+      border-bottom: 2px solid #285880;
+      font-size: 1.1rem;
+      align-items: center;
+    }
+    .score-item:last-child {
+      border-bottom: none;
+    }
+    .score-rank {
+      font-weight: bold;
+      color: #061b66;
+      margin-left: 10px;
+    }
+    .score-name {
+      flex: 1;
+      text-align: left;
+      margin: 0 10px;
+    }
+    .score-moves {
+      font-weight: bold;
+      color: #e74c3c;
+    }
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #061b66;
+    }
+
+    .share-modal {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    .share-content {
+      background: white;
+      padding: 30px;
+      border-radius: 20px;
+      text-align: center;
+      max-width: 400px;
+      width: 90%;
+    }
+    .share-content h2 {
+      color: #061b66;
+      margin-bottom: 15px;
+    }
+    .share-content input {
+      width: 100%;
+      padding: 12px;
+      font-size: 1.1rem;
+      border: 2px solid #285880;
+      border-radius: 10px;
+      margin: 15px 0;
+      text-align: center;
+    }
+    .share-buttons {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .share-buttons button {
+      padding: 10px 20px;
+      font-size: 1rem;
+    }
+    .status-msg {
+      margin: 10px 0;
+      padding: 10px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+    }
+    .success { background: #d4edda; color: #155724; }
+    .error { background: #f8d7da; color: #721c24; }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1>🧠 المتشابهين</h1>
+    <div class="stats">
+      <div>الحركات: <span id="moves">0</span></div>
+      <div>زوج: <span id="pairs">0</span>/8</div>
+    </div>
+    <div class="game-board" id="game-board"></div>
+    <button id="reset-btn">لعبة جديدة</button>
+    <button id="high-scores-btn">🏆 أعلى النتائج</button>
+
+    <div class="congrats" id="congrats">
+      <h2>🎂🎉 مبروووك 🎉🎂</h2>
+      <p>لقد أنهيت اللعبة في <span id="final-moves"></span> حركة ✅</p>
+      <button onclick="showShareModal()">مشاركة النتيجة 📤</button>
+      <button onclick="restartGame()">إعادة اللعب 🔁</button>
+    </div>
+
+    <div class="high-scores-page" id="high-scores-page">
+      <h2>🏆 أعلى النتائج العالمية</h2>
+      <div class="scores-list" id="scores-list">
+        <div class="loading">جاري التحميل... ⏳</div>
+      </div>
+      <button onclick="backToGame()">العودة للعبة ⬅️</button>
+      <button onclick="loadHighScores()">تحديث 🔄</button>
+    </div>
+  </div>
+
+  <div class="share-modal" id="share-modal">
+    <div class="share-content">
+      <h2>🎉 شارك نتيجتك!</h2>
+      <input type="text" id="player-name" placeholder="أدخل اسمك" maxlength="20">
+      <p>عدد الحركات: <strong id="share-moves"></strong></p>
+      <div id="status-msg"></div>
+      <div class="share-buttons">
+        <button onclick="saveScore()">حفظ في الترتيب العالمي 💾</button>
+        <button onclick="shareToSocial()">مشاركة 📱</button>
+        <button onclick="closeShareModal()">إلغاء ❌</button>
+      </div>
+    </div>
+  </div>
+
+  <audio id="clap-sound" src="clap.mp3" preload="auto"></audio>
+
+  <script>
+    // 🔹 GOOGLE SHEETS CONFIGURATION
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwNIJzYPIFoaKOFOIJBxHuACONpbmlUKHHhCcItdN2pD-Jlq5fkL-X6D3IB3YYG-o3q0w/exec';
+    const SHEET_NAME = 'Game';
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const gameBoard = document.getElementById('game-board');
+      const movesEl = document.getElementById('moves');
+      const pairsEl = document.getElementById('pairs');
+      const resetBtn = document.getElementById('reset-btn');
+      const highScoresBtn = document.getElementById('high-scores-btn');
+      const congrats = document.getElementById('congrats');
+      const finalMovesEl = document.getElementById('final-moves');
+      const clapSound = document.getElementById('clap-sound');
+      
+      const images = [
+        "images/alaa.png",
+        "images/taza.png",
+        "images/taza2.png",
+        "images/sagda.png",
+        "images/ziad.png",
+        "images/mostafa.png",
+        "images/ahmed.png",
+        "images/ali.png"
+      ];
+      
+      const backImage = "images/back.png";
+      let cards = [];
+      let flippedCards = [];
+      let matchedPairs = 0;
+      let moves = 0;
+      let canFlip = true;
+      let firstCardLongPressed = false;
+
+      function createGame() {
+        gameBoard.innerHTML = '';
+        cards = [];
+        flippedCards = [];
+        matchedPairs = 0;
+        moves = 0;
+        movesEl.textContent = moves;
+        pairsEl.textContent = matchedPairs;
+        canFlip = true;
+        congrats.style.display = "none";
+        
+        const gameImages = [...images, ...images];
+        for (let i = gameImages.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [gameImages[i], gameImages[j]] = [gameImages[j], gameImages[i]];
+        }
+        
+        gameImages.forEach(imgSrc => {
+          const card = document.createElement('div');
+          card.className = 'card';
+          card.dataset.image = imgSrc;
+
+          const inner = document.createElement('div');
+          inner.className = 'card-inner';
+
+          const front = document.createElement('div');
+          front.className = 'card-front';
+          const frontImg = document.createElement('img');
+          frontImg.src = imgSrc;
+          front.appendChild(frontImg);
+
+          const back = document.createElement('div');
+          back.className = 'card-back';
+          const backImg = document.createElement('img');
+          backImg.src = backImage;
+          back.appendChild(backImg);
+
+          inner.appendChild(front);
+          inner.appendChild(back);
+          card.appendChild(inner);
+
+          card.addEventListener('click', () => flipCard(card));
+
+          let pressTimer;
+          card.addEventListener('mousedown', () => {
+            pressTimer = setTimeout(() => handleLongPress(card), 800);
+          });
+          card.addEventListener('mouseup', () => clearTimeout(pressTimer));
+          card.addEventListener('mouseleave', () => clearTimeout(pressTimer));
+          card.addEventListener('touchstart', () => {
+            pressTimer = setTimeout(() => handleLongPress(card), 800);
+          });
+          card.addEventListener('touchend', () => clearTimeout(pressTimer));
+
+          gameBoard.appendChild(card);
+          cards.push(card);
+        });
+      }
+
+      function flipCard(card) {
+        if (!canFlip || card.classList.contains('flipped') || card.classList.contains('matched')) {
+          return;
+        }
+
+        card.classList.add('flipped');
+        flippedCards.push(card);
+        
+        if (flippedCards.length === 2) {
+          canFlip = false;
+          moves++;
+          movesEl.textContent = moves;
+          
+          const [card1, card2] = flippedCards;
+          
+          if (card1.dataset.image === card2.dataset.image) {
+            card1.classList.add('matched');
+            card2.classList.add('matched');
+            matchedPairs++;
+            pairsEl.textContent = matchedPairs;
+            flippedCards = [];
+            canFlip = true;
+            
+            if (matchedPairs === images.length) {
+              setTimeout(() => {
+                finalMovesEl.textContent = moves;
+                congrats.style.display = "flex";
+                launchConfetti();
+                clapSound.play();
+              }, 600);
+            }
+          } else {
+            setTimeout(() => {
+              card1.classList.remove('flipped');
+              card2.classList.remove('flipped');
+              flippedCards = [];
+              canFlip = true;
+            }, 1000);
+          }
+        }
+      }
+
+      function handleLongPress(card) {
+        const firstCard = cards[0];
+        const lastCard = cards[cards.length - 1];
+
+        if (card === firstCard) {
+          firstCardLongPressed = true;
+          setTimeout(() => (firstCardLongPressed = false), 5000);
+        }
+
+        if (card === lastCard && firstCardLongPressed) {
+          revealAllCards();
+        }
+      }
+
+      function revealAllCards() {
+        cards.forEach(card => card.classList.add('flipped'));
+        setTimeout(() => {
+          cards.forEach(card => {
+            if (!card.classList.contains('matched')) {
+              card.classList.remove('flipped');
+            }
+          });
+        }, 3000);
+        firstCardLongPressed = false;
+      }
+
+      function launchConfetti() {
+        for (let i = 0; i < 100; i++) {
+          const confetti = document.createElement("div");
+          confetti.className = "confetti";
+          confetti.style.left = Math.random() * 100 + "%";
+          confetti.style.backgroundColor = ["#ff4757","#2ed573","#1e90ff","#ffa502","#eccc68"][Math.floor(Math.random()*5)];
+          confetti.style.animationDuration = (2 + Math.random() * 3) + "s";
+          confetti.style.opacity = Math.random();
+          confetti.style.transform = `rotate(${Math.random()*360}deg)`;
+          congrats.appendChild(confetti);
+          setTimeout(() => confetti.remove(), 5000);
+        }
+      }
+
+      resetBtn.addEventListener('click', createGame);
+      highScoresBtn.addEventListener('click', showHighScores);
+      createGame();
+
+      window.restartGame = function() {
+        createGame();
+      }
+
+      window.showShareModal = function() {
+        document.getElementById('share-modal').style.display = 'flex';
+        document.getElementById('share-moves').textContent = moves;
+        document.getElementById('player-name').value = '';
+        document.getElementById('status-msg').innerHTML = '';
+      }
+
+      window.closeShareModal = function() {
+        document.getElementById('share-modal').style.display = 'none';
+      }
+
+      window.backToGame = function() {
+        document.getElementById('high-scores-page').style.display = 'none';
+      }
+
+      function showHighScores() {
+        document.getElementById('high-scores-page').style.display = 'flex';
+        loadHighScores();
+      }
+
+      // 🔹 LOAD HIGH SCORES FROM GOOGLE SHEETS
+      window.loadHighScores = async function() {
+        const scoresList = document.getElementById('scores-list');
+        scoresList.innerHTML = '<div class="loading">جاري التحميل... ⏳</div>';
+
+        try {
+          // Use POST to avoid CORS (send empty data to trigger read)
+          const payload = {
+            sheetName: SHEET_NAME,
+            action: 'read'
+          };
+          
+          const response = await fetch(APPS_SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'data=' + encodeURIComponent(JSON.stringify(payload))
+          });
+          
+          const data = await response.json();
+          
+          if (!data.values || data.values.length <= 1) {
+            scoresList.innerHTML = '<div class="loading">لا توجد نتائج بعد 📊</div>';
+            return;
+          }
+
+          // Skip header row and get scores
+          const scores = data.values.slice(1).map(row => ({
+            name: row[0] || 'Unknown',
+            moves: parseInt(row[1]) || 999,
+            date: row[2] || ''
+          }));
+
+          // Sort by moves (ascending)
+          scores.sort((a, b) => a.moves - b.moves);
+
+          // Display top 10
+          scoresList.innerHTML = scores.slice(0, 10).map((score, index) => `
+            <div class="score-item">
+              <span class="score-rank">#${index + 1}</span>
+              <span class="score-name">${score.name}</span>
+              <span class="score-moves">${score.moves} حركة</span>
+            </div>
+          `).join('');
+
+        } catch (error) {
+          scoresList.innerHTML = '<div class="loading error">خطأ في التحميل ❌<br>تحقق من نشر السكريبت</div>';
+          console.error('Error loading scores:', error);
+        }
+      }
+
+      // 🔹 SAVE SCORE TO GOOGLE SHEETS
+      window.saveScore = async function() {
+        const playerName = document.getElementById('player-name').value.trim();
+        const statusMsg = document.getElementById('status-msg');
+
+        if (!playerName) {
+          statusMsg.innerHTML = '<div class="status-msg error">من فضلك أدخل اسمك</div>';
+          return;
+        }
+
+        statusMsg.innerHTML = '<div class="status-msg">جاري الحفظ... ⏳</div>';
+
+        const date = new Date().toLocaleString('ar-EG');
+        const payload = {
+          sheetName: SHEET_NAME,
+          values: [[playerName, moves, date]]
+        };
+
+        try {
+          const response = await fetch(APPS_SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'data=' + encodeURIComponent(JSON.stringify(payload))
+          });
+
+          const result = await response.json();
+
+          if (result.success) {
+            statusMsg.innerHTML = '<div class="status-msg success">تم الحفظ بنجاح! 🎉</div>';
+            setTimeout(() => {
+              closeShareModal();
+              showHighScores();
+            }, 1500);
+          } else {
+            throw new Error(result.message || 'Failed to save');
+          }
+        } catch (error) {
+          statusMsg.innerHTML = '<div class="status-msg error">خطأ في الحفظ. حاول مرة أخرى</div>';
+          console.error('Error saving score:', error);
+        }
+      }
+
+      // 🔹 SHARE TO SOCIAL MEDIA
+      window.shareToSocial = function() {
+        const playerName = document.getElementById('player-name').value.trim() || 'أنا';
+        const text = `🎮 ${playerName} أنهى لعبة المتشابهين في ${moves} حركة! 🏆\nهل يمكنك التغلب على هذا الرقم؟`;
+        
+        if (navigator.share) {
+          navigator.share({ text })
+            .catch(err => console.log('Share cancelled'));
+        } else {
+          // Fallback: Copy to clipboard
+          navigator.clipboard.writeText(text)
+            .then(() => alert('تم النسخ! الصق في أي مكان للمشاركة 📋'));
+        }
+      }
+    });
+  </script>
+</body>
+</html>
