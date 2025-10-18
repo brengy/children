@@ -1,4 +1,4 @@
-<!DOCTYPE html><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -45,7 +45,6 @@
       margin: 20px 0;
     }
 
-    /* 🔹 Flip card styles */
     .card { 
       aspect-ratio: 1/1; 
       perspective: 1000px;
@@ -94,9 +93,14 @@
       background: #061b66; 
       color: white;
       box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      margin: 5px;
+    }
+    button:hover {
+      background: #0a2b8a;
+      transform: translateY(-2px);
+      transition: all 0.3s;
     }
 
-    /* 🔹 Birthday-style Congratulations */
     .congrats {
       position: absolute;
       top: 0; left: 0;
@@ -128,7 +132,6 @@
       from { transform: scale(1); }
       to { transform: scale(1.2); }
     }
-    /* Confetti */
     .confetti {
       position: absolute;
       width: 10px;
@@ -143,6 +146,111 @@
         opacity: 0;
       }
     }
+
+    .high-scores-page {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: #285880;
+      border-radius: 20px;
+      display: none;
+      flex-direction: column;
+      padding: 20px;
+      overflow-y: auto;
+    }
+    .high-scores-page h2 {
+      color: #fff4d9;
+      font-size: 2rem;
+      margin-bottom: 20px;
+    }
+    .scores-list {
+      background: #fff4d9;
+      border-radius: 15px;
+      padding: 15px;
+      margin-bottom: 20px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .score-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px;
+      border-bottom: 2px solid #285880;
+      font-size: 1.1rem;
+      align-items: center;
+    }
+    .score-item:last-child {
+      border-bottom: none;
+    }
+    .score-rank {
+      font-weight: bold;
+      color: #061b66;
+      margin-left: 10px;
+    }
+    .score-name {
+      flex: 1;
+      text-align: left;
+      margin: 0 10px;
+    }
+    .score-moves {
+      font-weight: bold;
+      color: #e74c3c;
+    }
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #061b66;
+    }
+
+    .share-modal {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    .share-content {
+      background: white;
+      padding: 30px;
+      border-radius: 20px;
+      text-align: center;
+      max-width: 400px;
+      width: 90%;
+    }
+    .share-content h2 {
+      color: #061b66;
+      margin-bottom: 15px;
+    }
+    .share-content input {
+      width: 100%;
+      padding: 12px;
+      font-size: 1.1rem;
+      border: 2px solid #285880;
+      border-radius: 10px;
+      margin: 15px 0;
+      text-align: center;
+    }
+    .share-buttons {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .share-buttons button {
+      padding: 10px 20px;
+      font-size: 1rem;
+    }
+    .status-msg {
+      margin: 10px 0;
+      padding: 10px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+    }
+    .success { background: #d4edda; color: #155724; }
+    .error { background: #f8d7da; color: #721c24; }
   </style>
 </head>
 <body>
@@ -154,24 +262,52 @@
     </div>
     <div class="game-board" id="game-board"></div>
     <button id="reset-btn">لعبة جديدة</button>
+    <button id="high-scores-btn">🏆 أعلى النتائج</button>
 
-    <!-- 🔹 Congrats overlay -->
     <div class="congrats" id="congrats">
       <h2>🎂🎉 مبروووك 🎉🎂</h2>
       <p>لقد أنهيت اللعبة في <span id="final-moves"></span> حركة ✅</p>
+      <button onclick="showShareModal()">مشاركة النتيجة 📤</button>
       <button onclick="restartGame()">إعادة اللعب 🔁</button>
+    </div>
+
+    <div class="high-scores-page" id="high-scores-page">
+      <h2>🏆 أعلى النتائج العالمية</h2>
+      <div class="scores-list" id="scores-list">
+        <div class="loading">جاري التحميل... ⏳</div>
+      </div>
+      <button onclick="backToGame()">العودة للعبة ⬅️</button>
+      <button onclick="loadHighScores()">تحديث 🔄</button>
     </div>
   </div>
 
-  <!-- 🔹 Clap sound -->
+  <div class="share-modal" id="share-modal">
+    <div class="share-content">
+      <h2>🎉 شارك نتيجتك!</h2>
+      <input type="text" id="player-name" placeholder="أدخل اسمك" maxlength="20">
+      <p>عدد الحركات: <strong id="share-moves"></strong></p>
+      <div id="status-msg"></div>
+      <div class="share-buttons">
+        <button onclick="saveScore()">حفظ في الترتيب العالمي 💾</button>
+        <button onclick="shareToSocial()">مشاركة 📱</button>
+        <button onclick="closeShareModal()">إلغاء ❌</button>
+      </div>
+    </div>
+  </div>
+
   <audio id="clap-sound" src="clap.mp3" preload="auto"></audio>
 
   <script>
+    // 🔹 GOOGLE SHEETS CONFIGURATION
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwNIJzYPIFoaKOFOIJBxHuACONpbmlUKHHhCcItdN2pD-Jlq5fkL-X6D3IB3YYG-o3q0w/exec';
+    const SHEET_NAME = 'Game';
+
     document.addEventListener('DOMContentLoaded', () => {
       const gameBoard = document.getElementById('game-board');
       const movesEl = document.getElementById('moves');
       const pairsEl = document.getElementById('pairs');
       const resetBtn = document.getElementById('reset-btn');
+      const highScoresBtn = document.getElementById('high-scores-btn');
       const congrats = document.getElementById('congrats');
       const finalMovesEl = document.getElementById('final-moves');
       const clapSound = document.getElementById('clap-sound');
@@ -193,10 +329,7 @@
       let matchedPairs = 0;
       let moves = 0;
       let canFlip = true;
-
-      // 🔹 Added for secret passcode
       let firstCardLongPressed = false;
-      let lastCardLongPressed = false;
 
       function createGame() {
         gameBoard.innerHTML = '';
@@ -241,7 +374,6 @@
 
           card.addEventListener('click', () => flipCard(card));
 
-          // 🔹 Added Long Press Detection
           let pressTimer;
           card.addEventListener('mousedown', () => {
             pressTimer = setTimeout(() => handleLongPress(card), 800);
@@ -286,7 +418,7 @@
                 finalMovesEl.textContent = moves;
                 congrats.style.display = "flex";
                 launchConfetti();
-                clapSound.play(); // 🔊 Play clap sound
+                clapSound.play();
               }, 600);
             }
           } else {
@@ -300,36 +432,30 @@
         }
       }
 
-      // 🔹 Handle Long Press Logic
       function handleLongPress(card) {
         const firstCard = cards[0];
         const lastCard = cards[cards.length - 1];
 
         if (card === firstCard) {
           firstCardLongPressed = true;
-          setTimeout(() => (firstCardLongPressed = false), 5000); // reset after 5s
+          setTimeout(() => (firstCardLongPressed = false), 5000);
         }
 
         if (card === lastCard && firstCardLongPressed) {
-          lastCardLongPressed = true;
           revealAllCards();
         }
       }
 
-      // 🔹 Reveal All Cards for 1 second
       function revealAllCards() {
         cards.forEach(card => card.classList.add('flipped'));
-
         setTimeout(() => {
           cards.forEach(card => {
             if (!card.classList.contains('matched')) {
               card.classList.remove('flipped');
             }
           });
-        }, 5000);
-
+        }, 3000);
         firstCardLongPressed = false;
-        lastCardLongPressed = false;
       }
 
       function launchConfetti() {
@@ -342,19 +468,145 @@
           confetti.style.opacity = Math.random();
           confetti.style.transform = `rotate(${Math.random()*360}deg)`;
           congrats.appendChild(confetti);
-
           setTimeout(() => confetti.remove(), 5000);
         }
       }
 
       resetBtn.addEventListener('click', createGame);
+      highScoresBtn.addEventListener('click', showHighScores);
       createGame();
 
       window.restartGame = function() {
         createGame();
       }
+
+      window.showShareModal = function() {
+        document.getElementById('share-modal').style.display = 'flex';
+        document.getElementById('share-moves').textContent = moves;
+        document.getElementById('player-name').value = '';
+        document.getElementById('status-msg').innerHTML = '';
+      }
+
+      window.closeShareModal = function() {
+        document.getElementById('share-modal').style.display = 'none';
+      }
+
+      window.backToGame = function() {
+        document.getElementById('high-scores-page').style.display = 'none';
+      }
+
+      function showHighScores() {
+        document.getElementById('high-scores-page').style.display = 'flex';
+        loadHighScores();
+      }
+
+      // 🔹 LOAD HIGH SCORES FROM GOOGLE SHEETS
+      window.loadHighScores = async function() {
+        const scoresList = document.getElementById('scores-list');
+        scoresList.innerHTML = '<div class="loading">جاري التحميل... ⏳</div>';
+
+        try {
+          // Use POST to avoid CORS (send empty data to trigger read)
+          const payload = {
+            sheetName: SHEET_NAME,
+            action: 'read'
+          };
+          
+          const response = await fetch(APPS_SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'data=' + encodeURIComponent(JSON.stringify(payload))
+          });
+          
+          const data = await response.json();
+          
+          if (!data.values || data.values.length <= 1) {
+            scoresList.innerHTML = '<div class="loading">لا توجد نتائج بعد 📊</div>';
+            return;
+          }
+
+          // Skip header row and get scores
+          const scores = data.values.slice(1).map(row => ({
+            name: row[0] || 'Unknown',
+            moves: parseInt(row[1]) || 999,
+            date: row[2] || ''
+          }));
+
+          // Sort by moves (ascending)
+          scores.sort((a, b) => a.moves - b.moves);
+
+          // Display top 10
+          scoresList.innerHTML = scores.slice(0, 10).map((score, index) => `
+            <div class="score-item">
+              <span class="score-rank">#${index + 1}</span>
+              <span class="score-name">${score.name}</span>
+              <span class="score-moves">${score.moves} حركة</span>
+            </div>
+          `).join('');
+
+        } catch (error) {
+          scoresList.innerHTML = '<div class="loading error">خطأ في التحميل ❌<br>تحقق من نشر السكريبت</div>';
+          console.error('Error loading scores:', error);
+        }
+      }
+
+      // 🔹 SAVE SCORE TO GOOGLE SHEETS
+      window.saveScore = async function() {
+        const playerName = document.getElementById('player-name').value.trim();
+        const statusMsg = document.getElementById('status-msg');
+
+        if (!playerName) {
+          statusMsg.innerHTML = '<div class="status-msg error">من فضلك أدخل اسمك</div>';
+          return;
+        }
+
+        statusMsg.innerHTML = '<div class="status-msg">جاري الحفظ... ⏳</div>';
+
+        const date = new Date().toLocaleString('ar-EG');
+        const payload = {
+          sheetName: SHEET_NAME,
+          values: [[playerName, moves, date]]
+        };
+
+        try {
+          const response = await fetch(APPS_SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'data=' + encodeURIComponent(JSON.stringify(payload))
+          });
+
+          const result = await response.json();
+
+          if (result.success) {
+            statusMsg.innerHTML = '<div class="status-msg success">تم الحفظ بنجاح! 🎉</div>';
+            setTimeout(() => {
+              closeShareModal();
+              showHighScores();
+            }, 1500);
+          } else {
+            throw new Error(result.message || 'Failed to save');
+          }
+        } catch (error) {
+          statusMsg.innerHTML = '<div class="status-msg error">خطأ في الحفظ. حاول مرة أخرى</div>';
+          console.error('Error saving score:', error);
+        }
+      }
+
+      // 🔹 SHARE TO SOCIAL MEDIA
+      window.shareToSocial = function() {
+        const playerName = document.getElementById('player-name').value.trim() || 'أنا';
+        const text = `🎮 ${playerName} أنهى لعبة المتشابهين في ${moves} حركة! 🏆\nهل يمكنك التغلب على هذا الرقم؟`;
+        
+        if (navigator.share) {
+          navigator.share({ text })
+            .catch(err => console.log('Share cancelled'));
+        } else {
+          // Fallback: Copy to clipboard
+          navigator.clipboard.writeText(text)
+            .then(() => alert('تم النسخ! الصق في أي مكان للمشاركة 📋'));
+        }
+      }
     });
   </script>
 </body>
 </html>
-
