@@ -440,7 +440,6 @@
       let moves = 0;
       let canFlip = true;
       let firstCardLongPressed = false;
-      let scoreSaved = false; // Track if score is already saved
 
       function startTimer() {
         if (timerInterval) {
@@ -474,7 +473,6 @@
         timerEl.textContent = '0:00';
         canFlip = true;
         congrats.style.display = "none";
-        scoreSaved = false; // Reset save status
         stopTimer();
         startTime = null; // Reset start time
         
@@ -622,7 +620,6 @@
       createGame();
 
       window.restartGame = function() {
-        scoreSaved = false; // Reset save status for new game
         createGame();
       }
 
@@ -708,10 +705,6 @@
 
       // 🔹 SAVE SCORE TO GOOGLE SHEETS
       window.saveScore = async function() {
-        if (scoreSaved) {
-          return; // Already saved, do nothing
-        }
-
         const playerName = document.getElementById('player-name').value.trim();
         const statusMsg = document.getElementById('status-msg');
         const saveBtn = document.getElementById('save-score-btn');
@@ -721,8 +714,6 @@
           return;
         }
 
-        // Disable button immediately
-        saveBtn.disabled = true;
         saveBtn.textContent = 'جاري الحفظ... ⏳';
         statusMsg.innerHTML = '<div class="status-msg">جاري الحفظ... ⏳</div>';
 
@@ -742,8 +733,7 @@
           const result = await response.json();
 
           if (result.success) {
-            scoreSaved = true; // Mark as saved
-            saveBtn.textContent = 'تم الحفظ ✅';
+            saveBtn.textContent = 'حفظ في الترتيب العالمي 💾';
             statusMsg.innerHTML = '<div class="status-msg success">تم الحفظ بنجاح! 🎉</div>';
             setTimeout(() => {
               closeShareModal();
@@ -753,8 +743,6 @@
             throw new Error(result.message || 'Failed to save');
           }
         } catch (error) {
-          // Re-enable button on error
-          saveBtn.disabled = false;
           saveBtn.textContent = 'حفظ في الترتيب العالمي 💾';
           statusMsg.innerHTML = '<div class="status-msg error">خطأ في الحفظ. حاول مرة أخرى</div>';
           console.error('Error saving score:', error);
