@@ -443,6 +443,9 @@
       let scoreSaved = false; // Track if score is already saved
 
       function startTimer() {
+        if (timerInterval) {
+          return; // Already running
+        }
         startTime = Date.now();
         timerInterval = setInterval(() => {
           elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
@@ -473,6 +476,7 @@
         congrats.style.display = "none";
         scoreSaved = false; // Reset save status
         stopTimer();
+        startTime = null; // Reset start time
         
         const gameImages = [...images, ...images];
         for (let i = gameImages.length - 1; i > 0; i--) {
@@ -527,8 +531,8 @@
           return;
         }
 
-        // Start timer on first flip
-        if (!startTime) {
+        // Start timer on first flip - ensure it only starts once
+        if (startTime === null) {
           startTimer();
         }
 
