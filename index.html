@@ -147,6 +147,12 @@
       transform: translateY(-2px);
       transition: all 0.3s;
     }
+    button:disabled {
+      background: #6c757d;
+      cursor: not-allowed;
+      opacity: 0.6;
+      transform: none;
+    }
 
     .congrats {
       position: absolute;
@@ -315,6 +321,7 @@
     <div class="stats">
       <div>الحركات: <span id="moves">0</span></div>
       <div>زوج: <span id="pairs">0</span>/8</div>
+      <div>الوقت: <span id="timer">0:00</span></div>
     </div>
     <div class="game-board" id="game-board"></div>
     <button id="reset-btn">لعبة جديدة</button>
@@ -323,6 +330,7 @@
     <div class="congrats" id="congrats">
       <h2>🎂🎉 مبروووك 🎉🎂</h2>
       <p>لقد أنهيت اللعبة في <span id="final-moves"></span> حركة ✅</p>
+      <p>الوقت: <span id="final-time"></span> ⏱️</p>
       <button onclick="showShareModal()">مشاركة النتيجة 📤</button>
       <button onclick="restartGame()">إعادة اللعب 🔁</button>
     </div>
@@ -344,7 +352,7 @@
       <p>عدد الحركات: <strong id="share-moves"></strong></p>
       <div id="status-msg"></div>
       <div class="share-buttons">
-        <button onclick="saveScore()">حفظ في الترتيب العالمي 💾</button>
+        <button id="save-score-btn" onclick="saveScore()">حفظ في الترتيب العالمي 💾</button>
         <button onclick="shareToSocial()">مشاركة 📱</button>
         <button onclick="closeShareModal()">إلغاء ❌</button>
       </div>
@@ -384,11 +392,16 @@
       const gameBoard = document.getElementById('game-board');
       const movesEl = document.getElementById('moves');
       const pairsEl = document.getElementById('pairs');
+      const timerEl = document.getElementById('timer');
       const resetBtn = document.getElementById('reset-btn');
       const highScoresBtn = document.getElementById('high-scores-btn');
       const congrats = document.getElementById('congrats');
       const finalMovesEl = document.getElementById('final-moves');
       const clapSound = document.getElementById('clap-sound');
+      
+      let startTime = null;
+      let timerInterval = null;
+      let elapsedSeconds = 0;
       
       // 🔹 Try to load images from custom folder, fallback to 'images'
       const imageNames = [
@@ -427,6 +440,24 @@
       let moves = 0;
       let canFlip = true;
       let firstCardLongPressed = false;
+      let scoreSaved = false; // Track if score is already saved
+
+      function startTimer() {
+        startTime = Date.now();
+        timerInterval = setInterval(() => {
+          elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+          const minutes = Math.floor(elapsedSeconds / 60);
+          const seconds = elapsedSeconds % 60;
+          timerEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }, 1000);
+      }
+
+      function stopTimer() {
+        if (timerInterval) {
+          clearInterval(timerInterval);
+          timerInterval = null;
+        }
+      }
 
       function createGame() {
         gameBoard.innerHTML = '';
@@ -434,10 +465,14 @@
         flippedCards = [];
         matchedPairs = 0;
         moves = 0;
+        elapsedSeconds = 0;
         movesEl.textContent = moves;
         pairsEl.textContent = matchedPairs;
+        timerEl.textContent = '0:00';
         canFlip = true;
         congrats.style.display = "none";
+        scoreSaved = false; // Reset save status
+        stopTimer();
         
         const gameImages = [...images, ...images];
         for (let i = gameImages.length - 1; i > 0; i--) {
@@ -492,6 +527,11 @@
           return;
         }
 
+        // Start timer on first flip
+        if (!startTime) {
+          startTimer();
+        }
+
         card.classList.add('flipped');
         flippedCards.push(card);
         
@@ -511,8 +551,12 @@
             canFlip = true;
             
             if (matchedPairs === images.length) {
+              stopTimer();
               setTimeout(() => {
                 finalMovesEl.textContent = moves;
+                const minutes = Math.floor(elapsedSeconds / 60);
+                const seconds = elapsedSeconds % 60;
+                document.getElementById('final-time').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
                 congrats.style.display = "flex";
                 launchConfetti();
                 clapSound.play();
@@ -626,20 +670,30 @@
           const scores = data.values.slice(1).map(row => ({
             name: row[0] || 'Unknown',
             moves: parseInt(row[1]) || 999,
-            date: row[2] || ''
+            time: parseInt(row[2]) || 9999,
+            date: row[3] || ''
           }));
 
-          // Sort by moves (ascending)
-          scores.sort((a, b) => a.moves - b.moves);
+          // Sort by moves first, then by time (ascending)
+          scores.sort((a, b) => {
+            if (a.moves === b.moves) {
+              return a.time - b.time; // Faster time wins
+            }
+            return a.moves - b.moves;
+          });
 
           // Display top 10
-          scoresList.innerHTML = scores.slice(0, 10).map((score, index) => `
+          scoresList.innerHTML = scores.slice(0, 10).map((score, index) => {
+            const minutes = Math.floor(score.time / 60);
+            const seconds = score.time % 60;
+            const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            return `
             <div class="score-item">
               <span class="score-rank">#${index + 1}</span>
               <span class="score-name">${score.name}</span>
-              <span class="score-moves">${score.moves} حركة</span>
+              <span class="score-moves">${score.moves} moves | ⏱️ ${timeStr}</span>
             </div>
-          `).join('');
+          `;}).join('');
 
         } catch (error) {
           scoresList.innerHTML = '<div class="loading error">خطأ في التحميل ❌<br>تحقق من نشر السكريبت</div>';
@@ -649,20 +703,28 @@
 
       // 🔹 SAVE SCORE TO GOOGLE SHEETS
       window.saveScore = async function() {
+        if (scoreSaved) {
+          return; // Already saved, do nothing
+        }
+
         const playerName = document.getElementById('player-name').value.trim();
         const statusMsg = document.getElementById('status-msg');
+        const saveBtn = document.getElementById('save-score-btn');
 
         if (!playerName) {
           statusMsg.innerHTML = '<div class="status-msg error">من فضلك أدخل اسمك</div>';
           return;
         }
 
+        // Disable button immediately
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'جاري الحفظ... ⏳';
         statusMsg.innerHTML = '<div class="status-msg">جاري الحفظ... ⏳</div>';
 
         const date = new Date().toLocaleString('ar-EG');
         const payload = {
           sheetName: SHEET_NAME,
-          values: [[playerName, moves, date]]
+          values: [[playerName, moves, elapsedSeconds, date]]
         };
 
         try {
@@ -675,6 +737,8 @@
           const result = await response.json();
 
           if (result.success) {
+            scoreSaved = true; // Mark as saved
+            saveBtn.textContent = 'تم الحفظ ✅';
             statusMsg.innerHTML = '<div class="status-msg success">تم الحفظ بنجاح! 🎉</div>';
             setTimeout(() => {
               closeShareModal();
@@ -684,6 +748,9 @@
             throw new Error(result.message || 'Failed to save');
           }
         } catch (error) {
+          // Re-enable button on error
+          saveBtn.disabled = false;
+          saveBtn.textContent = 'حفظ في الترتيب العالمي 💾';
           statusMsg.innerHTML = '<div class="status-msg error">خطأ في الحفظ. حاول مرة أخرى</div>';
           console.error('Error saving score:', error);
         }
