@@ -15,6 +15,53 @@
       align-items: center;
       padding: 10px;
     }
+
+    /* Login Screen */
+    .login-screen {
+      width: 100%;
+      max-width: 500px;
+      background: #285880;
+      border-radius: 20px;
+      padding: 40px 30px;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .login-screen h1 {
+      color: #d7dcf4;
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+    }
+    .login-screen p {
+      color: #fff4d9;
+      font-size: 1.1rem;
+      margin-bottom: 20px;
+    }
+    .login-screen input {
+      width: 100%;
+      padding: 15px;
+      font-size: 1.2rem;
+      border: 3px solid #fff4d9;
+      border-radius: 15px;
+      text-align: center;
+      font-family: 'Comic Sans MS', cursive;
+      background: white;
+    }
+    .login-screen input:focus {
+      outline: none;
+      border-color: #ffa502;
+      box-shadow: 0 0 10px rgba(255, 165, 2, 0.5);
+    }
+    .login-screen button {
+      padding: 15px 30px;
+      font-size: 1.3rem;
+    }
+    .hidden {
+      display: none !important;
+    }
+
     .game-container { 
       width: 100%; 
       max-width: 500px; 
@@ -254,7 +301,16 @@
   </style>
 </head>
 <body>
-  <div class="game-container">
+  <!-- Login Screen -->
+  <div class="login-screen" id="login-screen">
+    <h1>🧠 المتشابهين</h1>
+    <p>أدخل اسمك لبدء اللعبة</p>
+    <input type="text" id="folder-name" placeholder="اكتب اسمك هنا..." maxlength="30">
+    <button onclick="startGame()">ابدأ اللعب! 🎮</button>
+  </div>
+
+  <!-- Game Container -->
+  <div class="game-container hidden" id="game-container">
     <h1>🧠 المتشابهين</h1>
     <div class="stats">
       <div>الحركات: <span id="moves">0</span></div>
@@ -302,7 +358,29 @@
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwNIJzYPIFoaKOFOIJBxHuACONpbmlUKHHhCcItdN2pD-Jlq5fkL-X6D3IB3YYG-o3q0w/exec';
     const SHEET_NAME = 'Game';
 
-    document.addEventListener('DOMContentLoaded', () => {
+    let currentFolder = 'images'; // Default folder
+    let playerUsername = ''; // Store player's username
+
+    // 🔹 Start Game Function
+    window.startGame = function() {
+      const folderInput = document.getElementById('folder-name').value.trim();
+      playerUsername = folderInput || 'Player';
+      
+      if (folderInput) {
+        currentFolder = folderInput;
+      } else {
+        currentFolder = 'images';
+      }
+
+      // Hide login, show game
+      document.getElementById('login-screen').classList.add('hidden');
+      document.getElementById('game-container').classList.remove('hidden');
+      
+      // Initialize the game
+      initializeGame();
+    }
+
+    function initializeGame() {
       const gameBoard = document.getElementById('game-board');
       const movesEl = document.getElementById('moves');
       const pairsEl = document.getElementById('pairs');
@@ -312,18 +390,37 @@
       const finalMovesEl = document.getElementById('final-moves');
       const clapSound = document.getElementById('clap-sound');
       
-      const images = [
-        "images/alaa.png",
-        "images/taza.png",
-        "images/taza2.png",
-        "images/sagda.png",
-        "images/ziad.png",
-        "images/mostafa.png",
-        "images/ahmed.png",
-        "images/ali.png"
+      // 🔹 Try to load images from custom folder, fallback to 'images'
+      const imageNames = [
+        "1.png",
+        "2.png",
+        "3.png",
+        "4.png",
+        "5.png",
+        "6.png",
+        "7.png",
+        "8.png"
       ];
-      
-      const backImage = "images/back.png";
+
+      let images = [];
+      let backImage = '';
+
+      // Test if custom folder exists by trying to load first image
+      const testImg = new Image();
+      testImg.onload = function() {
+        // Custom folder exists! Use it
+        images = imageNames.map(name => `${currentFolder}/${name}`);
+        backImage = `${currentFolder}/back.png`;
+        createGame();
+      };
+      testImg.onerror = function() {
+        // Custom folder doesn't exist, use default 'images' folder
+        console.log(`Folder '${currentFolder}' not found. Using default 'images' folder.`);
+        images = imageNames.map(name => `images/${name}`);
+        backImage = "images/back.png";
+        createGame();
+      };
+      testImg.src = `${currentFolder}/1.png`;
       let cards = [];
       let flippedCards = [];
       let matchedPairs = 0;
@@ -483,7 +580,7 @@
       window.showShareModal = function() {
         document.getElementById('share-modal').style.display = 'flex';
         document.getElementById('share-moves').textContent = moves;
-        document.getElementById('player-name').value = '';
+        document.getElementById('player-name').value = playerUsername; // Auto-fill username
         document.getElementById('status-msg').innerHTML = '';
       }
 
@@ -605,6 +702,21 @@
           navigator.clipboard.writeText(text)
             .then(() => alert('تم النسخ! الصق في أي مكان للمشاركة 📋'));
         }
+      }
+
+      resetBtn.addEventListener('click', createGame);
+      highScoresBtn.addEventListener('click', showHighScores);
+    }
+
+    // Auto-fill username in share modal and handle Enter key
+    document.addEventListener('DOMContentLoaded', () => {
+      const folderInput = document.getElementById('folder-name');
+      if (folderInput) {
+        folderInput.addEventListener('keypress', function(e) {
+          if (e.key === 'Enter') {
+            startGame();
+          }
+        });
       }
     });
   </script>
